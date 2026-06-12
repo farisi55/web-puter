@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
     <script src="https://js.puter.com/v2/"></script>
 </head>
 
@@ -37,6 +38,7 @@
             </button>
         </div>
     </header>
+
     <!-- CHAT AREA -->
     <main id="chat-container">
         <div id="chat-messages">
@@ -57,17 +59,23 @@
                         onclick="quickPrompt('Apa perbedaan var, let, dan const di JavaScript?')">📝 JS Tips</button>
                 </div>
             </div>
+        </div>
     </main>
 
-    <div id="loading-indicator" class="loading" style="display: none;">
-        AI sedang mengetik...
-    </div>
-    </main>
-
-    <footer class="input-area">
-        <input type="text" id="user-input" placeholder="Tulis pertanyaan..." autocomplete="off">
-        <button id="send-btn">Kirim</button>
-    </footer>
+    <!-- INPUT AREA -->
+    <div id="input-area">
+        <form id="input-form">
+            <div id="input-wrapper">
+                <textarea id="chat-input" placeholder="Tulis pertanyaan..." rows="1" autocomplete="off"></textarea>
+            </div>
+            <button type="submit" id="btn-send" title="Kirim">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </form>
     </div>
 
     <script src="script.js"></script>
