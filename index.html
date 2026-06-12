@@ -1,36 +1,76 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Puter AI Multi Model Chat</title>
-    <link rel="stylesheet" href="style.css">
+    <title>PuterChat — AI Chatbot</title>
+    <meta name="description" content="Chatbot AI gratis menggunakan Puter.ai — pilih dari 500+ model AI tanpa API key.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://js.puter.com/v2/"></script>
 </head>
+
 <body>
-    <div class="chat-container">
-        <header class="chat-header">
-            <h2>Puter AI Multi Model Chat</h2>
-            <select id="model-select">
-                </select>
-        </header>
-
-        <main class="chat-box" id="chat-box">
-            <div class="message bot-message">
-                <p>Hai! Ada yang bisa saya bantu?</p>
+    <!-- HEADER -->
+    <header id="app-header">
+        <div class="header-brand">
+            <div class="header-logo">P</div>
+            <div>
+                <div class="header-title">Puter<span>Chat</span></div>
             </div>
-            </main>
-
-        <div id="loading-indicator" class="loading" style="display: none;">
-            AI sedang mengetik...
         </div>
+        <div class="header-controls">
+            <div id="model-selector-wrapper">
+                <select id="model-selector" title="Pilih model AI">
+                    <option value="" disabled selected>Memuat model...</option>
+                </select>
+            </div>
+            <button id="btn-clear" title="Bersihkan chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Hapus
+            </button>
+        </div>
+    </header>
+    <!-- CHAT AREA -->
+    <main id="chat-container">
+        <div id="chat-messages">
+            <!-- Welcome screen -->
+            <div id="welcome-screen">
+                <div class="welcome-icon">✦</div>
+                <h1 class="welcome-title">Hai, ada yang bisa dibantu?</h1>
+                <p class="welcome-subtitle">Pilih model AI favorit kamu dari dropdown, lalu mulai mengobrol. Gratis,
+                    tanpa API key!</p>
+                <div class="welcome-chips">
+                    <button class="welcome-chip" onclick="quickPrompt('Jelaskan apa itu machine learning')">🧠 Apa itu
+                        ML?</button>
+                    <button class="welcome-chip" onclick="quickPrompt('Buatkan kode Python untuk sorting')">💻 Kode
+                        Python</button>
+                    <button class="welcome-chip" onclick="quickPrompt('Tulis puisi tentang bintang di malam hari')">🌟
+                        Tulis puisi</button>
+                    <button class="welcome-chip"
+                        onclick="quickPrompt('Apa perbedaan var, let, dan const di JavaScript?')">📝 JS Tips</button>
+                </div>
+            </div>
+    </main>
 
-        <footer class="input-area">
-            <input type="text" id="user-input" placeholder="Tulis pertanyaan..." autocomplete="off">
-            <button id="send-btn">Kirim</button>
-        </footer>
+    <div id="loading-indicator" class="loading" style="display: none;">
+        AI sedang mengetik...
+    </div>
+    </main>
+
+    <footer class="input-area">
+        <input type="text" id="user-input" placeholder="Tulis pertanyaan..." autocomplete="off">
+        <button id="send-btn">Kirim</button>
+    </footer>
     </div>
 
     <script src="script.js"></script>
 </body>
+
 </html>
