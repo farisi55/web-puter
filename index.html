@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puter AI Multi Model Chat</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://js.puter.com/v2/"></script>
+</head>
+<body>
+    <div class="chat-container">
+        <header class="chat-header">
+            <h2>Puter AI Multi Model Chat</h2>
+            <select id="model-select">
+                </select>
+        </header>
+
+        <main class="chat-box" id="chat-box">
+            <div class="message bot-message">
+                <p>Hai! Ada yang bisa saya bantu?</p>
+            </div>
+            </main>
+
+        <div id="loading-indicator" class="loading" style="display: none;">
+            AI sedang mengetik...
+        </div>
+
+        <footer class="input-area">
+            <input type="text" id="user-input" placeholder="Tulis pertanyaan..." autocomplete="off">
+            <button id="send-btn">Kirim</button>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
