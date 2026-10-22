@@ -1,85 +1,202 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PuterChat — AI Chatbot</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Buat gambar dan video dengan AI, lalu simpan file Anda di Puter.">
+    <meta name="theme-color" content="#f8f8fa">
+    <title>Puter Studio - Kreasi AI</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <meta name="description" content="Chatbot AI gratis menggunakan Puter.ai — pilih dari 500+ model AI tanpa API key.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://js.puter.com/v2/"></script>
 </head>
-
 <body>
-    <!-- HEADER -->
-    <header id="app-header">
-        <div class="header-brand">
-            <div class="header-logo">P</div>
-            <div>
-                <div class="header-title">Puter<span>Chat</span></div>
-            </div>
-        </div>
-        <div class="header-controls">
-            <div id="model-selector-wrapper">
-                <select id="model-selector" title="Pilih model AI">
-                    <option value="" disabled selected>Memuat model...</option>
-                </select>
-            </div>
-            <button id="btn-clear" title="Bersihkan chat">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                Hapus
-            </button>
-        </div>
-    </header>
+    <div class="app-shell">
+        <aside class="sidebar" aria-label="Navigasi utama">
+            <a class="brand" href="#" aria-label="Puter Studio beranda">
+                <span class="brand-mark">P</span>
+                <span class="brand-name">puter<span>studio</span></span>
+            </a>
 
-    <!-- CHAT AREA -->
-    <main id="chat-container">
-        <div id="chat-messages">
-            <!-- Welcome screen -->
-            <div id="welcome-screen">
-                <div class="welcome-icon">✦</div>
-                <h1 class="welcome-title">Hai, ada yang bisa dibantu?</h1>
-                <p class="welcome-subtitle">Pilih model AI favorit kamu dari dropdown, lalu mulai mengobrol. Gratis,
-                    tanpa API key!</p>
-                <div class="welcome-chips">
-                    <button class="welcome-chip" onclick="quickPrompt('Jelaskan apa itu machine learning')">🧠 Apa itu
-                        ML?</button>
-                    <button class="welcome-chip" onclick="quickPrompt('Buatkan kode Python untuk sorting')">💻 Kode
-                        Python</button>
-                    <button class="welcome-chip" onclick="quickPrompt('Tulis puisi tentang bintang di malam hari')">🌟
-                        Tulis puisi</button>
-                    <button class="welcome-chip"
-                        onclick="quickPrompt('Apa perbedaan var, let, dan const di JavaScript?')">📝 JS Tips</button>
+            <div class="nav-label">RUANG KERJA</div>
+            <nav class="main-nav">
+                <button class="nav-item" type="button" data-view="chat-view">
+                    <span class="nav-icon nav-icon-chat">◌</span>
+                    <span>Chat AI</span>
+                </button>
+                <button class="nav-item is-active" type="button" data-view="creator-view">
+                    <span class="nav-icon">+</span>
+                    <span>Buat konten</span>
+                </button>
+                <button class="nav-item" type="button" data-view="library-view">
+                    <span class="nav-icon nav-icon-library">▤</span>
+                    <span>Perpustakaan</span>
+                    <span class="nav-count" id="library-count">0</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-spacer"></div>
+            <section class="storage-card" aria-label="Penyimpanan Puter">
+                <div class="storage-symbol">P</div>
+                <p>File tersimpan di cloud Puter</p>
+                <span>Unggah dokumen, gambar, atau video.</span>
+                <button class="button button-secondary storage-upload" id="sidebar-upload" type="button">Unggah file</button>
+            </section>
+            <input id="file-input" class="visually-hidden" type="file" multiple accept=".pdf,.doc,.docx,.txt,.rtf,.odt,.ppt,.pptx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.webp,.gif,.mp4,.mov,.webm,.m4v">
+            <a class="docs-link" href="https://docs.puter.com/" target="_blank" rel="noreferrer">Dokumentasi Puter <span aria-hidden="true">↗</span></a>
+        </aside>
+
+        <main class="workspace">
+            <header class="topbar">
+                <div class="breadcrumbs"><span>Ruang kerja</span><span class="breadcrumb-divider">/</span><strong id="page-context">Buat konten</strong></div>
+                <div class="topbar-right">
+                    <span class="connection-mark" aria-hidden="true"></span>
+                    <span id="connection-status" role="status">Menghubungkan ke Puter</span>
                 </div>
-            </div>
-        </div>
-    </main>
+            </header>
 
-    <!-- INPUT AREA -->
-    <div id="input-area">
-        <form id="input-form">
-            <div id="input-wrapper">
-                <textarea id="chat-input" placeholder="Tulis pertanyaan..." rows="1" autocomplete="off"></textarea>
-            </div>
-            <button type="submit" id="btn-send" title="Kirim">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-            </button>
-        </form>
+            <section class="view chat-view" id="chat-view" hidden>
+                <div class="chat-heading">
+                    <div>
+                        <p class="eyebrow">ASISTEN AI</p>
+                        <h1>Obrolkan ide Anda.</h1>
+                        <p class="heading-copy">Tanya, tulis, rangkum, atau lanjutkan percakapan dengan model AI.</p>
+                    </div>
+                    <div class="chat-toolbar">
+                        <label class="visually-hidden" for="chat-model">Model AI</label>
+                        <select id="chat-model" aria-label="Model AI">
+                            <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
+                        </select>
+                        <button class="button button-secondary" id="clear-chat" type="button">Chat baru</button>
+                    </div>
+                </div>
+                <div class="chat-panel">
+                    <div id="chat-messages" class="chat-messages" aria-live="polite">
+                        <div id="chat-welcome" class="chat-welcome">
+                            <span class="chat-welcome-mark" aria-hidden="true">✳</span>
+                            <h2>Apa yang ingin Anda ketahui?</h2>
+                            <p>Pilih salah satu untuk memulai percakapan.</p>
+                            <div class="chat-prompts">
+                                <button type="button" data-chat-prompt="Jelaskan machine learning dengan contoh sederhana">Jelaskan machine learning</button>
+                                <button type="button" data-chat-prompt="Bantu saya menulis email profesional untuk mengajukan jadwal rapat">Tulis email profesional</button>
+                                <button type="button" data-chat-prompt="Buatkan contoh fungsi JavaScript untuk memeriksa email">Bantu menulis kode</button>
+                            </div>
+                        </div>
+                    </div>
+                    <form id="chat-form" class="chat-composer">
+                        <label class="visually-hidden" for="chat-input">Pesan Anda</label>
+                        <textarea id="chat-input" rows="1" maxlength="8000" placeholder="Tulis pesan..." required></textarea>
+                        <div class="composer-footer">
+                            <span>AI dapat membuat kesalahan. Periksa kembali jawaban penting.</span>
+                            <button class="button button-primary chat-send" id="chat-send" type="submit">
+                                <span>Kirim</span><span aria-hidden="true">↗</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="view creator-view" id="creator-view">
+                <div class="page-heading">
+                    <div>
+                        <p class="eyebrow">STUDIO KREASI</p>
+                        <h1>Wujudkan ide jadi visual.</h1>
+                        <p class="heading-copy">Buat gambar dan video dari deskripsi sederhana, lalu simpan hasilnya.</p>
+                    </div>
+                </div>
+
+                <div class="studio-grid">
+                    <form class="creator-panel" id="generator-form">
+                        <div class="mode-switch" role="tablist" aria-label="Jenis konten">
+                            <button class="mode-tab is-selected" type="button" role="tab" aria-selected="true" data-mode="image">Gambar</button>
+                            <button class="mode-tab" type="button" role="tab" aria-selected="false" data-mode="video">Video</button>
+                        </div>
+
+                        <label class="field-label" for="prompt-input">Jelaskan ide Anda</label>
+                        <textarea id="prompt-input" rows="5" maxlength="1800" placeholder="Contoh: Rumah kecil di tepi danau saat pagi berkabut, cahaya matahari lembut, gaya fotografi sinematik." required></textarea>
+                        <div class="prompt-footer"><span>Deskripsi yang spesifik memberi hasil lebih terarah.</span><span id="prompt-count">0 / 1800</span></div>
+
+                        <div id="image-options" class="option-section">
+                            <span class="field-label">Gaya visual</span>
+                            <div class="style-options" role="group" aria-label="Gaya visual gambar">
+                                <button class="style-option is-selected" type="button" data-style="Foto realistis">Foto</button>
+                                <button class="style-option" type="button" data-style="Ilustrasi digital">Ilustrasi</button>
+                                <button class="style-option" type="button" data-style="Render 3D">3D</button>
+                            </div>
+                        </div>
+
+                        <div id="video-options" class="option-section" hidden>
+                            <span class="field-label">Model video</span>
+                            <p class="video-model-note"><strong>Wan 2.7</strong><span>Model default Puter untuk text-to-video.</span></p>
+                        </div>
+
+                        <div class="form-divider"></div>
+                        <button class="button button-primary generate-button" id="generate-button" type="submit">
+                            <span id="generate-label">Buat gambar</span>
+                            <span class="button-arrow" aria-hidden="true">↗</span>
+                        </button>
+                        <p class="usage-note">Pembuatan konten menggunakan akun dan kuota AI Puter Anda.</p>
+                    </form>
+
+                    <section class="result-panel" aria-label="Hasil generasi">
+                        <div class="result-topline">
+                            <h2>Hasil</h2>
+                            <span id="result-label">Pratinjau akan muncul di sini</span>
+                        </div>
+                        <div id="result-stage" class="result-stage" aria-live="polite">
+                            <div class="empty-result">
+                                <div class="empty-art" aria-hidden="true"><span></span><span></span><span></span></div>
+                                <h3>Mulai dari sebuah ide</h3>
+                                <p>Hasil gambar atau video Anda akan tampil di area ini.</p>
+                            </div>
+                        </div>
+                        <div id="result-actions" class="result-actions" hidden>
+                            <span id="result-filename"></span>
+                            <a id="download-result" class="button button-secondary" download>Unduh hasil</a>
+                        </div>
+                    </section>
+                </div>
+
+                <section class="recent-section">
+                    <div class="section-heading">
+                        <h2>Aktivitas terbaru</h2>
+                        <button class="text-button" type="button" data-open-library>Lihat perpustakaan <span aria-hidden="true">↗</span></button>
+                    </div>
+                    <div id="recent-grid" class="recent-grid">
+                        <p class="empty-library">Hasil dan file yang Anda tambahkan akan muncul di sini.</p>
+                    </div>
+                </section>
+            </section>
+
+            <section class="view library-view" id="library-view" hidden>
+                <div class="page-heading library-heading">
+                    <div>
+                        <p class="eyebrow">FILE ANDA</p>
+                        <h1>Perpustakaan.</h1>
+                        <p class="heading-copy">Kelola file dan hasil kreasi dalam satu tempat.</p>
+                    </div>
+                    <button class="button button-primary" id="library-upload" type="button">Unggah file <span class="button-arrow" aria-hidden="true">+</span></button>
+                </div>
+                <div class="upload-dropzone" id="upload-dropzone" tabindex="0" role="button" aria-label="Pilih file untuk diunggah">
+                    <span class="upload-symbol" aria-hidden="true">↑</span>
+                    <strong>Letakkan file di sini atau pilih dari perangkat</strong>
+                    <span>Dokumen, gambar, dan video</span>
+                </div>
+                <div class="section-heading library-list-heading">
+                    <h2>File dan kreasi</h2>
+                    <span id="library-summary">0 item</span>
+                </div>
+                <div id="library-grid" class="library-grid">
+                    <p class="empty-library">Belum ada file. Unggah file atau buat gambar pertama Anda.</p>
+                </div>
+            </section>
+
+            <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+        </main>
     </div>
-
     <script src="script.js"></script>
 </body>
-
 </html>

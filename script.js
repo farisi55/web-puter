@@ -1,497 +1,557 @@
-// ===== DOM ELEMENTS =====
-const chatMessages = document.getElementById('chat-messages');
-const chatContainer = document.getElementById('chat-container');
-const chatInput = document.getElementById('chat-input');
-const sendBtn = document.getElementById('btn-send');
-const inputForm = document.getElementById('input-form');
-const modelSelector = document.getElementById('model-selector');
-const welcomeScreen = document.getElementById('welcome-screen');
-const clearBtn = document.getElementById('btn-clear');
+const fileInput = document.getElementById('file-input');
+const promptInput = document.getElementById('prompt-input');
+const promptCount = document.getElementById('prompt-count');
+const generatorForm = document.getElementById('generator-form');
+const generateButton = document.getElementById('generate-button');
+const generateLabel = document.getElementById('generate-label');
+const resultStage = document.getElementById('result-stage');
+const resultLabel = document.getElementById('result-label');
+const resultActions = document.getElementById('result-actions');
+const resultFilename = document.getElementById('result-filename');
+const downloadResult = document.getElementById('download-result');
+const recentGrid = document.getElementById('recent-grid');
+const libraryGrid = document.getElementById('library-grid');
+const libraryCount = document.getElementById('library-count');
+const librarySummary = document.getElementById('library-summary');
+const toast = document.getElementById('toast');
+const connectionStatus = document.getElementById('connection-status');
+const connectionMark = document.querySelector('.connection-mark');
 
-// ===== STATE =====
-let conversationHistory = [];
+let activeMode = 'image';
+let activeStyle = 'Foto realistis';
 let isGenerating = false;
+let isChatting = false;
+let toastTimer;
+const libraryItems = [];
+const conversationHistory = [];
 
-// ===== LOAD MODELS (DYNAMIC) =====
-async function loadModels() {
-    try {
-        const models = await puter.ai.listModels();
-
-        // Sort: popular providers first, then alphabetical
-        const providerOrder = ['openai', 'anthropic', 'google', 'meta', 'mistral', 'deepseek', 'xai'];
-
-        // Group by provider
-        const grouped = {};
-        models.forEach(m => {
-            const id = m.id || m.name || m;
-            const provider = typeof id === 'string' ? id.split('/')[0] : 'other';
-            if (!grouped[provider]) grouped[provider] = [];
-            grouped[provider].push(id);
-        });
-
-        // Sort providers
-        const sortedProviders = Object.keys(grouped).sort((a, b) => {
-            const ia = providerOrder.indexOf(a);
-            const ib = providerOrder.indexOf(b);
-            if (ia !== -1 && ib !== -1) return ia - ib;
-            if (ia !== -1) return -1;
-            if (ib !== -1) return 1;
-            return a.localeCompare(b);
-        });
-
-        modelSelector.innerHTML = '';
-
-        sortedProviders.forEach(provider => {
-            const group = document.createElement('optgroup');
-            group.label = provider.charAt(0).toUpperCase() + provider.slice(1);
-
-            grouped[provider].sort().forEach(modelId => {
-                const opt = document.createElement('option');
-                opt.value = modelId;
-                // Show short name (remove provider prefix)
-                const shortName = modelId.includes('/') ? modelId.split('/').slice(1).join('/') : modelId;
-                opt.textContent = shortName;
-                group.appendChild(opt);
-            });
-
-            modelSelector.appendChild(group);
-        });
-
-        // Set default model
-        const preferredDefaults = ['openai/gpt-4o-mini', 'openai/gpt-4o', 'gpt-4o-mini', 'claude-3-haiku'];
-        let defaultSet = false;
-        for (const def of preferredDefaults) {
-            const opt = modelSelector.querySelector(`option[value="${def}"]`);
-            if (opt) {
-                modelSelector.value = def;
-                defaultSet = true;
-                break;
-            }
-        }
-        if (!defaultSet && modelSelector.options.length > 0) {
-            modelSelector.selectedIndex = 0;
-        }
-
-        console.log(`✅ Loaded ${models.length} models`);
-
-    } catch (err) {
-        console.error('Failed to load models:', err);
-        modelSelector.innerHTML = '<option value="gpt-4o-mini">gpt-4o-mini (fallback)</option>';
-    }
+function setConnectionStatus(message, state = 'ready') {
+    connectionStatus.textContent = message;
+    connectionStatus.dataset.state = state;
+    connectionMark.dataset.state = state;
 }
 
-loadModels();
-
-// ===== MARKDOWN PARSER (lightweight) =====
-function parseMarkdown(text) {
-    if (typeof text !== 'string') return String(text);
-
-    let html = text
-        // Escape HTML
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-
-        // Code blocks (```lang\n...\n```)
-        .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-            return `<pre><code class="lang-${lang || 'text'}">${code.trim()}</code></pre>`;
-        })
-
-        // Inline code
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-
-        // Bold
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-
-        // Italic
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-
-        // Headers
-        .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-
-        // Blockquote
-        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
-
-        // Horizontal rule
-        .replace(/^---$/gm, '<hr>')
-
-        // Unordered list
-        .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
-
-        // Ordered list
-        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-
-        // Links
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-
-        // Paragraphs (double newline)
-        .replace(/\n\n/g, '</p><p>')
-
-        // Single newline → <br>
-        .replace(/\n/g, '<br>');
-
-    // Wrap consecutive <li> in <ul>
-    html = html.replace(/((?:<li>.*?<\/li>\s*(?:<br>)?)+)/g, '<ul>$1</ul>');
-    html = html.replace(/<br><\/ul>/g, '</ul>');
-    html = html.replace(/<ul><br>/g, '<ul>');
-
-    return `<p>${html}</p>`.replace(/<p><\/p>/g, '');
+function updateCount() {
+    const count = libraryItems.length;
+    libraryCount.textContent = count;
+    librarySummary.textContent = `${count} item`;
 }
 
-// ===== EXTRACT TEXT FROM RESPONSE =====
-function extractResponseText(response) {
-    // Case 1: Simple string
-    if (typeof response === 'string') return response;
-
-    // Case 2: Has message.content (standard ChatResponse)
-    if (response?.message?.content) {
-        const content = response.message.content;
-        if (typeof content === 'string') return content;
-        // content is array (multimodal)
-        if (Array.isArray(content)) {
-            return content
-                .filter(c => c.type === 'text')
-                .map(c => c.text)
-                .join('\n');
-        }
-        return JSON.stringify(content, null, 2);
-    }
-
-    // Case 3: Has text property directly
-    if (typeof response?.text === 'string') return response.text;
-
-    // Case 4: Has content directly
-    if (typeof response?.content === 'string') return response.content;
-
-    // Case 5: Deeply nested or unknown object — return null to signal object render
-    if (typeof response === 'object' && response !== null) {
-        return null;
-    }
-
-    return String(response);
+function showToast(message, type = 'info') {
+    window.clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.dataset.type = type;
+    toast.hidden = false;
+    toastTimer = window.setTimeout(() => {
+        toast.hidden = true;
+    }, 5000);
 }
 
-// ===== RENDER OBJECT AS COLLAPSIBLE =====
-function renderObjectResponse(obj) {
-    const json = JSON.stringify(obj, null, 2);
-    const id = 'obj-' + Date.now();
-    return `
-        <p>Response berupa objek:</p>
-        <button class="obj-toggle" onclick="toggleObj('${id}', this)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-            Lihat detail response
-        </button>
-        <div class="obj-detail" id="${id}">
-            <pre><code>${json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>
-        </div>
-    `;
-}
-
-window.toggleObj = function (id, btn) {
-    const el = document.getElementById(id);
-    el.classList.toggle('show');
-    btn.classList.toggle('open');
-    const label = el.classList.contains('show') ? 'Sembunyikan detail' : 'Lihat detail response';
-    // Update text node
-    const textNodes = Array.from(btn.childNodes).filter(n => n.nodeType === 3);
-    if (textNodes.length) {
-        textNodes[textNodes.length - 1].textContent = '\n            ' + label + '\n        ';
-    }
-};
-
-// ===== SCROLL HELPER =====
-function scrollToBottom() {
-    requestAnimationFrame(() => {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+function setView(viewId) {
+    const viewNames = {
+        'creator-view': 'Buat konten',
+        'chat-view': 'Chat AI',
+        'library-view': 'Perpustakaan'
+    };
+    Object.keys(viewNames).forEach((id) => {
+        document.getElementById(id).hidden = id !== viewId;
+    });
+    document.getElementById('page-context').textContent = viewNames[viewId];
+    document.querySelectorAll('.nav-item').forEach((item) => {
+        item.classList.toggle('is-active', item.dataset.view === viewId);
     });
 }
 
-// ===== ADD MESSAGE TO UI =====
-function addMessage(role, text, model = null) {
-    welcomeScreen.style.display = 'none';
+document.querySelectorAll('.nav-item').forEach((item) => {
+    item.addEventListener('click', () => setView(item.dataset.view));
+});
+document.querySelectorAll('[data-open-library]').forEach((item) => {
+    item.addEventListener('click', () => setView('library-view'));
+});
 
-    const row = document.createElement('div');
-    row.className = `message-row ${role}`;
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const chatForm = document.getElementById('chat-form');
+const chatSend = document.getElementById('chat-send');
+const chatModel = document.getElementById('chat-model');
+const chatWelcome = document.getElementById('chat-welcome');
 
-    const avatar = document.createElement('div');
-    avatar.className = 'msg-avatar';
-    avatar.textContent = role === 'user' ? '👤' : '✦';
+function scrollChatToBottom() {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
 
-    const content = document.createElement('div');
-    content.className = 'msg-content';
+function appendChatMessage(role, text) {
+    chatWelcome.hidden = true;
+    const article = document.createElement('article');
+    article.className = `chat-message ${role}`;
+    const label = document.createElement('span');
+    label.className = 'chat-message-label';
+    label.textContent = role === 'user' ? 'Anda' : 'AI';
+    const body = document.createElement('p');
+    body.className = 'chat-message-body';
+    body.textContent = text;
+    article.append(label, body);
+    chatMessages.append(article);
+    scrollChatToBottom();
+    return body;
+}
 
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
+function setChatLoading(loading) {
+    isChatting = loading;
+    chatSend.disabled = loading;
+    chatInput.disabled = loading;
+    chatSend.querySelector('span:first-child').textContent = loading ? 'Menjawab' : 'Kirim';
+}
 
-    if (role === 'user') {
-        bubble.textContent = text;
-    } else {
-        bubble.innerHTML = parseMarkdown(text);
+async function sendChatMessage(text) {
+    const message = text.trim();
+    if (!message || isChatting) return;
+    if (!window.puter?.ai?.chat) {
+        showToast('Fitur chat Puter tidak tersedia. Periksa koneksi lalu coba lagi.', 'error');
+        return;
     }
 
-    content.appendChild(bubble);
-
-    // Meta info for assistant messages
-    if (role === 'assistant' && model) {
-        const meta = document.createElement('div');
-        meta.className = 'msg-meta';
-        const tag = document.createElement('span');
-        tag.className = 'msg-model-tag';
-        tag.textContent = model;
-        const time = document.createElement('span');
-        time.className = 'msg-time';
-        time.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        meta.appendChild(tag);
-        meta.appendChild(time);
-        content.appendChild(meta);
-    }
-
-    row.appendChild(avatar);
-    row.appendChild(content);
-    chatMessages.appendChild(row);
-    scrollToBottom();
-
-    return bubble;
-}
-
-function addObjectMessage(obj, model) {
-    welcomeScreen.style.display = 'none';
-
-    const row = document.createElement('div');
-    row.className = 'message-row assistant';
-
-    const avatar = document.createElement('div');
-    avatar.className = 'msg-avatar';
-    avatar.textContent = '✦';
-
-    const content = document.createElement('div');
-    content.className = 'msg-content';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    bubble.innerHTML = renderObjectResponse(obj);
-
-    content.appendChild(bubble);
-
-    if (model) {
-        const meta = document.createElement('div');
-        meta.className = 'msg-meta';
-        const tag = document.createElement('span');
-        tag.className = 'msg-model-tag';
-        tag.textContent = model;
-        const time = document.createElement('span');
-        time.className = 'msg-time';
-        time.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        meta.appendChild(tag);
-        meta.appendChild(time);
-        content.appendChild(meta);
-    }
-
-    row.appendChild(avatar);
-    row.appendChild(content);
-    chatMessages.appendChild(row);
-    scrollToBottom();
-}
-
-function addErrorMessage(text) {
-    const row = document.createElement('div');
-    row.className = 'message-row assistant';
-
-    const avatar = document.createElement('div');
-    avatar.className = 'msg-avatar';
-    avatar.textContent = '⚠';
-
-    const content = document.createElement('div');
-    content.className = 'msg-content';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble error-bubble';
-    bubble.textContent = text;
-
-    content.appendChild(bubble);
-    row.appendChild(avatar);
-    row.appendChild(content);
-    chatMessages.appendChild(row);
-    scrollToBottom();
-}
-
-// ===== LOADING INDICATOR =====
-function showLoading() {
-    const row = document.createElement('div');
-    row.className = 'message-row assistant';
-    row.id = 'loading-indicator';
-
-    const avatar = document.createElement('div');
-    avatar.className = 'msg-avatar';
-    avatar.textContent = '✦';
-
-    const content = document.createElement('div');
-    content.className = 'msg-content';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    bubble.innerHTML = `
-        <div class="loading-dots">
-            <span></span><span></span><span></span>
-        </div>
-    `;
-
-    content.appendChild(bubble);
-    row.appendChild(avatar);
-    row.appendChild(content);
-    chatMessages.appendChild(row);
-    scrollToBottom();
-}
-
-function hideLoading() {
-    const el = document.getElementById('loading-indicator');
-    if (el) el.remove();
-}
-
-// ===== SEND MESSAGE =====
-async function sendMessage(userText) {
-    if (!userText.trim() || isGenerating) return;
-
-    isGenerating = true;
-    sendBtn.disabled = true;
-
-    const selectedModel = modelSelector.value;
-
-    // Add user message
-    addMessage('user', userText);
-    conversationHistory.push({ role: 'user', content: userText });
-
-    // Show loading
-    showLoading();
+    setChatViewForPending();
+    appendChatMessage('user', message);
+    conversationHistory.push({ role: 'user', content: message });
+    setChatLoading(true);
+    const responseBody = appendChatMessage('assistant', 'Sedang menyiapkan jawaban...');
+    responseBody.classList.add('is-pending');
 
     try {
-        // Use streaming for real-time feel
-        const response = await puter.ai.chat(conversationHistory, {
-            model: selectedModel,
-            stream: true,
+        const response = await window.puter.ai.chat(conversationHistory, {
+            model: chatModel.value,
+            stream: true
         });
-
-        hideLoading();
-
-        // Check if response is iterable (stream)
+        let answer = '';
         if (response && typeof response[Symbol.asyncIterator] === 'function') {
-            // Streaming response
-            welcomeScreen.style.display = 'none';
-
-            const row = document.createElement('div');
-            row.className = 'message-row assistant';
-
-            const avatar = document.createElement('div');
-            avatar.className = 'msg-avatar';
-            avatar.textContent = '✦';
-
-            const content = document.createElement('div');
-            content.className = 'msg-content';
-
-            const bubble = document.createElement('div');
-            bubble.className = 'msg-bubble streaming-cursor';
-
-            content.appendChild(bubble);
-
-            const meta = document.createElement('div');
-            meta.className = 'msg-meta';
-            const tag = document.createElement('span');
-            tag.className = 'msg-model-tag';
-            tag.textContent = selectedModel;
-            const time = document.createElement('span');
-            time.className = 'msg-time';
-            time.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-            meta.appendChild(tag);
-            meta.appendChild(time);
-            content.appendChild(meta);
-
-            row.appendChild(avatar);
-            row.appendChild(content);
-            chatMessages.appendChild(row);
-
-            let fullText = '';
-
-            for await (const chunk of response) {
-                const part = chunk?.text || chunk?.message?.content || '';
-                if (typeof part === 'string') {
-                    fullText += part;
-                    bubble.innerHTML = parseMarkdown(fullText);
-                    scrollToBottom();
+            for await (const part of response) {
+                const content = part?.text || part?.message?.content || '';
+                if (typeof content === 'string') {
+                    answer += content;
+                    responseBody.textContent = answer;
+                    scrollChatToBottom();
                 }
             }
-
-            bubble.classList.remove('streaming-cursor');
-            bubble.innerHTML = parseMarkdown(fullText);
-
-            conversationHistory.push({ role: 'assistant', content: fullText });
-
-        } else {
-            // Non-streaming response
-            const text = extractResponseText(response);
-
-            if (text !== null) {
-                addMessage('assistant', text, selectedModel);
-                conversationHistory.push({ role: 'assistant', content: text });
-            } else {
-                // Object response
-                addObjectMessage(response, selectedModel);
-                conversationHistory.push({ role: 'assistant', content: JSON.stringify(response) });
-            }
+        } else if (typeof response === 'string') {
+            answer = response;
+        } else if (typeof response?.message?.content === 'string') {
+            answer = response.message.content;
+        } else if (typeof response?.text === 'string') {
+            answer = response.text;
         }
 
-    } catch (err) {
-        hideLoading();
-        console.error('Chat error:', err);
-        const errMsg = err?.message || err?.toString() || 'Terjadi kesalahan, silakan coba lagi.';
-        addErrorMessage(`Error: ${errMsg}`);
+        if (!answer.trim()) {
+            throw new Error('Model tidak mengembalikan teks. Coba lagi atau pilih model lain.');
+        }
+        responseBody.textContent = answer;
+        conversationHistory.push({ role: 'assistant', content: answer });
+    } catch (error) {
+        console.error('Chat AI gagal:', error);
+        responseBody.textContent = `Jawaban gagal dimuat: ${error?.message || 'Terjadi kesalahan. Silakan coba lagi.'}`;
+        responseBody.classList.add('chat-error');
+        conversationHistory.pop();
+        showToast(error?.message || 'Chat AI gagal. Silakan coba lagi.', 'error');
     } finally {
-        isGenerating = false;
-        sendBtn.disabled = false;
+        responseBody.classList.remove('is-pending');
+        setChatLoading(false);
         chatInput.focus();
+        scrollChatToBottom();
     }
 }
 
-// ===== EVENT HANDLERS =====
-inputForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const text = chatInput.value.trim();
-    if (text) {
-        chatInput.value = '';
-        chatInput.style.height = 'auto';
-        sendMessage(text);
-    }
+function setChatViewForPending() {
+    setView('chat-view');
+}
+
+chatForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const message = chatInput.value;
+    if (!message.trim() || isChatting) return;
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    sendChatMessage(message);
 });
 
-// Auto-resize textarea
 chatInput.addEventListener('input', () => {
     chatInput.style.height = 'auto';
-    chatInput.style.height = Math.min(chatInput.scrollHeight, 160) + 'px';
+    chatInput.style.height = `${Math.min(chatInput.scrollHeight, 170)}px`;
 });
 
-// Enter to send, Shift+Enter for newline
-chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        inputForm.dispatchEvent(new Event('submit'));
+chatInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        chatForm.requestSubmit();
     }
 });
 
-// Clear chat
-clearBtn.addEventListener('click', () => {
-    conversationHistory = [];
-    chatMessages.innerHTML = '';
-    chatMessages.appendChild(welcomeScreen);
-    welcomeScreen.style.display = '';
+document.querySelectorAll('[data-chat-prompt]').forEach((button) => {
+    button.addEventListener('click', () => sendChatMessage(button.dataset.chatPrompt));
 });
 
-// Quick prompts
-window.quickPrompt = function (text) {
-    chatInput.value = text;
-    sendMessage(text);
+document.getElementById('clear-chat').addEventListener('click', () => {
+    if (isChatting) return;
+    conversationHistory.length = 0;
+    chatMessages.querySelectorAll('.chat-message').forEach((message) => message.remove());
+    chatWelcome.hidden = false;
     chatInput.value = '';
-};
+    chatInput.focus();
+});
+
+async function loadChatModels() {
+    if (!window.puter?.ai?.listModels) return;
+    try {
+        const models = await window.puter.ai.listModels();
+        const modelIds = models
+            .map((model) => model?.id || model?.name)
+            .filter((id) => typeof id === 'string' && id.length > 0);
+        if (!modelIds.length) return;
+
+        const preferred = ['gpt-5.6-luna', 'gpt-4o-mini', 'gpt-4o'];
+        modelIds.sort((a, b) => {
+            const ai = preferred.indexOf(a);
+            const bi = preferred.indexOf(b);
+            if (ai !== -1 || bi !== -1) return (ai === -1 ? Infinity : ai) - (bi === -1 ? Infinity : bi);
+            return a.localeCompare(b);
+        });
+        chatModel.replaceChildren();
+        modelIds.forEach((id) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = id;
+            chatModel.append(option);
+        });
+    } catch (error) {
+        console.error('Daftar model chat tidak dapat dimuat:', error);
+    }
+}
+
+loadChatModels();
+
+document.querySelectorAll('.mode-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+        activeMode = tab.dataset.mode;
+        document.querySelectorAll('.mode-tab').forEach((item) => {
+            const selected = item === tab;
+            item.classList.toggle('is-selected', selected);
+            item.setAttribute('aria-selected', String(selected));
+        });
+        const isVideo = activeMode === 'video';
+        document.getElementById('image-options').hidden = isVideo;
+        document.getElementById('video-options').hidden = !isVideo;
+        generateLabel.textContent = isVideo ? 'Buat video' : 'Buat gambar';
+        promptInput.placeholder = isVideo
+            ? 'Contoh: Kamera bergerak perlahan menyusuri hutan pinus berkabut, dedaunan bergoyang tertiup angin, suasana tenang.'
+            : 'Contoh: Rumah kecil di tepi danau saat pagi berkabut, cahaya matahari lembut, gaya fotografi sinematik.';
+    });
+});
+
+document.querySelectorAll('.style-option').forEach((button) => {
+    button.addEventListener('click', () => {
+        activeStyle = button.dataset.style;
+        document.querySelectorAll('.style-option').forEach((item) => {
+            item.classList.toggle('is-selected', item === button);
+        });
+    });
+});
+
+promptInput.addEventListener('input', () => {
+    promptCount.textContent = `${promptInput.value.length} / 1800`;
+});
+
+function safeFilename(name) {
+    return name.normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'file';
+}
+
+function getExtension(name) {
+    return name.split('.').pop().toLowerCase();
+}
+
+function getFileKind(file) {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('video/')) return 'video';
+    return 'document';
+}
+
+function getFileBadge(item) {
+    if (item.kind === 'image') return 'GAMBAR';
+    if (item.kind === 'video') return 'VIDEO';
+    return getExtension(item.name).toUpperCase() || 'FILE';
+}
+
+function renderLibrary() {
+    updateCount();
+    const recentItems = libraryItems.slice(-4).reverse();
+    recentGrid.replaceChildren();
+    libraryGrid.replaceChildren();
+
+    if (libraryItems.length === 0) {
+        const emptyRecent = document.createElement('p');
+        emptyRecent.className = 'empty-library';
+        emptyRecent.textContent = 'Hasil dan file yang Anda tambahkan akan muncul di sini.';
+        recentGrid.append(emptyRecent);
+
+        const emptyLibrary = document.createElement('p');
+        emptyLibrary.className = 'empty-library';
+        emptyLibrary.textContent = 'Belum ada file. Unggah file atau buat gambar pertama Anda.';
+        libraryGrid.append(emptyLibrary);
+        return;
+    }
+
+    recentItems.forEach((item) => recentGrid.append(createMediaCard(item, true)));
+    libraryItems.slice().reverse().forEach((item) => libraryGrid.append(createMediaCard(item, false)));
+}
+
+function createMediaCard(item, compact) {
+    const card = document.createElement('article');
+    card.className = compact ? 'media-card compact-card' : 'media-card';
+    const preview = document.createElement('div');
+    preview.className = 'media-preview';
+
+    if (item.kind === 'image' && item.url) {
+        const image = document.createElement('img');
+        image.src = item.url;
+        image.alt = item.name;
+        image.loading = 'lazy';
+        preview.append(image);
+    } else if (item.kind === 'video' && item.url) {
+        const video = document.createElement('video');
+        video.src = item.url;
+        video.controls = true;
+        video.preload = 'metadata';
+        video.setAttribute('aria-label', item.name);
+        preview.append(video);
+    } else {
+        const doc = document.createElement('div');
+        doc.className = 'document-preview';
+        const badge = document.createElement('span');
+        badge.textContent = getFileBadge(item);
+        const name = document.createElement('strong');
+        name.textContent = item.name;
+        doc.append(badge, name);
+        preview.append(doc);
+    }
+
+    const details = document.createElement('div');
+    details.className = 'media-details';
+    const name = document.createElement('strong');
+    name.textContent = item.name;
+    const meta = document.createElement('span');
+    meta.textContent = item.label;
+    details.append(name, meta);
+    card.append(preview, details);
+    if (item.url && (item.kind === 'image' || item.kind === 'video')) {
+        const link = document.createElement('a');
+        link.className = 'card-download';
+        link.href = item.url;
+        link.download = item.name;
+        link.textContent = 'Unduh';
+        link.setAttribute('aria-label', `Unduh ${item.name}`);
+        card.append(link);
+    }
+    return card;
+}
+
+function getMediaUrl(result) {
+    if (typeof result === 'string') return result;
+    if (result instanceof Blob) return URL.createObjectURL(result);
+    if (result instanceof HTMLImageElement || result instanceof HTMLVideoElement) return result.currentSrc || result.src;
+    if (result && typeof result === 'object') {
+        for (const key of ['url', 'src', 'video_url', 'image_url']) {
+            if (typeof result[key] === 'string' && result[key]) return result[key];
+        }
+        if (result.data instanceof Blob) return URL.createObjectURL(result.data);
+    }
+    return '';
+}
+
+function showEmptyResult(message, title = 'Mulai dari sebuah ide') {
+    resultStage.replaceChildren();
+    const empty = document.createElement('div');
+    empty.className = 'empty-result';
+    const art = document.createElement('div');
+    art.className = 'empty-art';
+    art.setAttribute('aria-hidden', 'true');
+    art.innerHTML = '<span></span><span></span><span></span>';
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    const copy = document.createElement('p');
+    copy.textContent = message;
+    empty.append(art, heading, copy);
+    resultStage.append(empty);
+    resultActions.hidden = true;
+}
+
+function setGeneratingState(isLoading) {
+    isGenerating = isLoading;
+    generateButton.disabled = isLoading;
+    generateButton.classList.toggle('is-loading', isLoading);
+    generateLabel.textContent = isLoading
+        ? 'Sedang membuat...'
+        : activeMode === 'video' ? 'Buat video' : 'Buat gambar';
+    if (isLoading) {
+        resultStage.innerHTML = '<div class="loading-result"><div class="skeleton-media"></div><div class="skeleton-line"></div><div class="skeleton-line short"></div><p>Proses ini mungkin memerlukan waktu.</p></div>';
+        resultActions.hidden = true;
+        resultLabel.textContent = 'Sedang diproses';
+    }
+}
+
+function showGeneratedResult(result, kind, prompt, filename) {
+    const url = getMediaUrl(result);
+    if (!url) {
+        throw new Error('Puter tidak mengembalikan media yang dapat ditampilkan. Coba lagi atau gunakan model lain.');
+    }
+
+    resultStage.replaceChildren();
+    const media = kind === 'video' ? document.createElement('video') : document.createElement('img');
+    media.className = 'generated-media';
+    media.src = url;
+    media.controls = kind === 'video';
+    media.alt = kind === 'image' ? prompt : '';
+    if (kind === 'video') {
+        media.playsInline = true;
+        media.preload = 'metadata';
+        media.setAttribute('aria-label', 'Video hasil generasi');
+    }
+    resultStage.append(media);
+    resultFilename.textContent = filename;
+    downloadResult.href = url;
+    downloadResult.download = filename;
+    resultActions.hidden = false;
+    resultLabel.textContent = kind === 'video' ? 'Video siap diputar' : 'Gambar selesai dibuat';
+
+    const item = {
+        name: filename,
+        kind,
+        url,
+        label: 'Hasil kreasi · Tersimpan di Puter',
+        createdAt: Date.now()
+    };
+    libraryItems.push(item);
+    renderLibrary();
+}
+
+generatorForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const prompt = promptInput.value.trim();
+    if (!prompt || isGenerating) {
+        if (!prompt) showToast('Tulis deskripsi sebelum mulai membuat.', 'error');
+        return;
+    }
+    if (!window.puter?.ai) {
+        showToast('Puter belum tersedia. Periksa koneksi internet lalu muat ulang halaman.', 'error');
+        return;
+    }
+
+    const kind = activeMode;
+    const extension = kind === 'video' ? 'mp4' : 'png';
+    const filename = `puter-${kind}-${Date.now()}.${extension}`;
+    setGeneratingState(true);
+    try {
+        let result;
+        if (kind === 'image') {
+            result = await window.puter.ai.txt2img(`${prompt}. Gaya visual: ${activeStyle}.`, {
+                puter_output_path: filename
+            });
+        } else {
+            result = await window.puter.ai.txt2vid(prompt, { puter_output_path: filename });
+        }
+        showGeneratedResult(result, kind, prompt, filename);
+        showToast(`${kind === 'video' ? 'Video' : 'Gambar'} berhasil dibuat.`, 'success');
+    } catch (error) {
+        console.error('Pembuatan media gagal:', error);
+        const detail = error?.message || 'Terjadi kesalahan saat membuat media.';
+        showEmptyResult(detail, 'Belum berhasil dibuat');
+        resultLabel.textContent = 'Proses gagal';
+        showToast(detail, 'error');
+    } finally {
+        setGeneratingState(false);
+    }
+});
+
+async function uploadFiles(files) {
+    const selectedFiles = Array.from(files || []);
+    if (!selectedFiles.length) return;
+    if (!window.puter?.fs?.write) {
+        showToast('Penyimpanan Puter tidak tersedia. Periksa koneksi internet lalu muat ulang halaman.', 'error');
+        return;
+    }
+
+    setView('library-view');
+    let uploadedCount = 0;
+    const failedFiles = [];
+    for (const file of selectedFiles) {
+        const path = `puter-upload-${Date.now()}-${safeFilename(file.name)}`;
+        try {
+            const uploaded = await window.puter.fs.write(path, file);
+            const localUrl = file.type.startsWith('image/') || file.type.startsWith('video/')
+                ? URL.createObjectURL(file)
+                : '';
+            libraryItems.push({
+                name: file.name,
+                kind: getFileKind(file),
+                url: localUrl,
+                label: `Tersimpan di Puter${uploaded?.path ? ` · ${uploaded.path}` : ''}`,
+                path: uploaded?.path || path
+            });
+            uploadedCount += 1;
+        } catch (error) {
+            console.error(`Unggah ${file.name} gagal:`, error);
+            failedFiles.push(`${file.name}: ${error?.message || 'terjadi kesalahan.'}`);
+        }
+    }
+    renderLibrary();
+    if (failedFiles.length > 0) {
+        const successfulMessage = uploadedCount > 0 ? `${uploadedCount} file berhasil. ` : '';
+        showToast(`${successfulMessage}Gagal mengunggah ${failedFiles.join('; ')}`, 'error');
+    } else if (uploadedCount === selectedFiles.length) {
+        showToast(uploadedCount === 1 ? 'File berhasil diunggah ke Puter.' : `${uploadedCount} file berhasil diunggah ke Puter.`, 'success');
+    }
+}
+
+document.getElementById('sidebar-upload').addEventListener('click', () => fileInput.click());
+document.getElementById('library-upload').addEventListener('click', () => fileInput.click());
+document.getElementById('upload-dropzone').addEventListener('click', () => fileInput.click());
+document.getElementById('upload-dropzone').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        fileInput.click();
+    }
+});
+fileInput.addEventListener('change', async () => {
+    await uploadFiles(fileInput.files);
+    fileInput.value = '';
+});
+
+const dropzone = document.getElementById('upload-dropzone');
+['dragenter', 'dragover'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.add('is-dragging');
+    });
+});
+['dragleave', 'drop'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.remove('is-dragging');
+    });
+});
+dropzone.addEventListener('drop', (event) => uploadFiles(event.dataTransfer.files));
+
+window.addEventListener('dragover', (event) => event.preventDefault());
+window.addEventListener('drop', (event) => event.preventDefault());
+
+if (window.puter) {
+    setConnectionStatus('Puter siap', 'ready');
+} else {
+    setConnectionStatus('Menunggu koneksi Puter', 'pending');
+    window.addEventListener('load', () => {
+        if (window.puter) {
+            setConnectionStatus('Puter siap', 'ready');
+        } else {
+            setConnectionStatus('Puter tidak terhubung', 'error');
+        }
+    }, { once: true });
+}
+
+renderLibrary();
