@@ -13,6 +13,20 @@ Puter Studio adalah aplikasi web sederhana berbahasa Indonesia untuk chat dengan
 
 ## Menjalankan secara lokal
 
+### Opsi 1: Bun (rekomendasi)
+
+Pastikan [Bun](https://bun.sh) sudah terinstall. Lalu jalankan server pengembangan dengan hot-reload otomatis:
+
+```powershell
+bun run dev
+```
+
+Buka [http://localhost:3000](http://localhost:3000) di browser.
+
+> Server akan otomatis me-restart saat berkas Anda ubah. Browser perlu di-refresh manual untuk melihat perubahan CSS/JS.
+
+### Opsi 2: Python
+
 Pastikan Python tersedia, lalu jalankan server statis dari folder proyek:
 
 ```powershell
